@@ -150,8 +150,8 @@ static irqreturn_t ts_interrupt(int irq, void *dev_id)
 //		lx = x;
 //		ly = y;
 //#endif
-		lx = ts->x_max - x;
-		ly = y;
+		lx = x;
+		ly = ts->y_max - y;
 		printk("touchscreen debug values: x=%d, lx=%d, y=%d, ly=%d\n", x, lx, y, ly);
 		ts_update_pen_state(ts, lx, ly, 255);
 		/* kick pen up timer - to make sure it expires again(!) */
