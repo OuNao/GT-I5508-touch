@@ -65,8 +65,12 @@
 
 #define TS_DRIVER_NAME "msm_touchscreen"
 
-#define X_MAX	1024
-#define Y_MAX	1024
+#define X_MIN	259
+#define Y_MIN	234
+#define X_MAX_	774
+#define Y_MAX_	808
+#define X_MAX	(X_MAX_-X_MIN)
+#define Y_MAX	(Y_MAX_-Y_MIN)
 #define P_MAX	256
 
 struct ts {
@@ -150,6 +154,8 @@ static irqreturn_t ts_interrupt(int irq, void *dev_id)
 //		lx = x;
 //		ly = y;
 //#endif
+		x = x - X_MIN;
+		y = y - Y_MIN;
 		lx = x;
 		ly = ts->y_max - y;
 		printk("touchscreen debug values: x=%d, lx=%d, y=%d, ly=%d\n", x, lx, y, ly);
