@@ -65,13 +65,31 @@
 
 #define TS_DRIVER_NAME "msm_touchscreen"
 
-#define X_MIN	259
-#define Y_MIN	234
-#define X_MAX_	774
-#define Y_MAX_	808
-#define X_MAX	(X_MAX_-X_MIN)
-#define Y_MAX	(Y_MAX_-Y_MIN)
+/*static unsigned int x_min_cal= 259;
+static unsigned int y_min_cal= 234;
+static unsigned int x_max_cal= 774;
+static unsigned int y_max_cal= 808;
+static unsigned int x_max_def= 774-259;
+static unsigned int y_max_def= 808-234;*/
+
+static unsigned int x_min_cal= 0;
+static unsigned int y_min_cal= 0;
+static unsigned int x_max_cal= 1024;
+static unsigned int y_max_cal= 1024;
+static unsigned int x_max_def= 1024-0;
+static unsigned int y_max_def= 1024-0;
+
+static int calib_mode= 0;
 #define P_MAX	256
+
+static ssize_t calib_show(struct device *dev, struct device_attribute *attr, char *buf);
+static ssize_t calib_store( struct device *dev, struct device_attribute *attr, const char *buf, size_t size);
+static DEVICE_ATTR(calib, 0644, calib_show, calib_store);
+
+struct class *touch_class;
+EXPORT_SYMBOL(touch_class);
+struct device *msm_touch_dev;
+EXPORT_SYMBOL(msm_touch_dev);
 
 struct ts {
 	struct input_dev *input;
@@ -141,7 +159,12 @@ static irqreturn_t ts_interrupt(int irq, void *dev_id)
 		/* TSSC can do Z axis measurment, but driver doesn't support
 		 * this yet.
 		 */
-
+		if (calib_mode){
+		 if (x < x_min_cal) x_min_cal = x;
+		 if (x > x_max_cal) x_max_cal = x;
+		 if (y < y_min_cal) y_min_cal = y;
+		 if (y > y_max_cal) y_max_cal = y;
+		}
 		/*
 		 * REMOVE THIS:
 		 * These x, y co-ordinates adjustments will be removed once
@@ -154,8 +177,8 @@ static irqreturn_t ts_interrupt(int irq, void *dev_id)
 //		lx = x;
 //		ly = y;
 //#endif
-		x = x - X_MIN;
-		y = y - Y_MIN;
+		x = x - x_min_cal;
+		y = y - y_min_cal;
 		lx = x;
 		ly = ts->y_max - y;
 		printk("touchscreen debug values: x=%d, lx=%d, y=%d, ly=%d\n", x, lx, y, ly);
@@ -182,6 +205,21 @@ static int __devinit ts_probe(struct platform_device *pdev)
 	unsigned int x_max, y_max, pressure_max;
 	struct msm_ts_platform_data *pdata = pdev->dev.platform_data;
 
+	FILE *fp;
+	
+	if(( fp = fopen("/data/misc/touchscreen/touch_calib", "rb")) != NULL) {   // try to open calibration file
+	  fread(&x_min_cal, sizeof(unsigned int), 1, fp);
+	  fread(&x_max_cal, sizeof(unsigned int), 1, fp);
+	  fread(&y_min_cal, sizeof(unsigned int), 1, fp);
+	  fread(&y_max_cal, sizeof(unsigned int), 1, fp);
+	  x_max_def= x_max_cal-x_min_cal;
+	  y_max_def= y_max_cal-y_min_cal;
+	  fclose(fp);
+	}
+	else {
+	  printf("Cannot open calibration file.\n");
+	}
+	
 	/* The primary initialization of the TS Hardware
 	 * is taken care of by the ADC code on the modem side
 	 */
@@ -235,12 +273,12 @@ static int __devinit ts_probe(struct platform_device *pdev)
 	input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
 
 	if (pdata) {
-		x_max = pdata->x_max ? : X_MAX;
-		y_max = pdata->y_max ? : Y_MAX;
+		x_max = pdata->x_max ? : x_max_def;
+		y_max = pdata->y_max ? : y_max_def;
 		pressure_max = pdata->pressure_max ? : P_MAX;
 	} else {
-		x_max = X_MAX;
-		y_max = Y_MAX;
+		x_max = x_max_def;
+		y_max = y_max_def;
 		pressure_max = P_MAX;
 	}
 
@@ -264,6 +302,11 @@ static int __devinit ts_probe(struct platform_device *pdev)
 		goto fail_req_irq;
 
 	platform_set_drvdata(pdev, ts);
+	
+	touch_class = class_create(THIS_MODULE, "touch");
+	if (IS_ERR(touch_class)) pr_err("Failed to create class(touch)!\n");
+	msm_touch_dev = device_create(touch_class, NULL, 0, NULL, "msm_touch");
+	if (device_create_file(msm_touch_dev, &dev_attr_calib) < 0) pr_err("Failed to create device file(%s)!\n", dev_attr_calib.attr.name);
 
 	return 0;
 
@@ -317,6 +360,39 @@ static void __exit ts_exit(void)
 {
 	platform_driver_unregister(&ts_driver);
 }
+
+static ssize_t calib_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int n;
+	n=sprintf(buf, "%d", calib_mode);
+        return n + 1;
+}
+
+static ssize_t calib_store(
+		struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t size)
+{
+	char *after;
+	unsigned long value = simple_strtoul(buf, &after, 10);
+	FILE *fp;
+	if (value) calib_mode = 1;
+	else {
+	  if(( fp = fopen("/data/misc/touchscreen/touch_calib", "wb")) != NULL) {
+	    printk("Saving calibration data on /data/misc/touchscreen/touch_calib; xmin=%d, xmax=%d, ymin=%d, ymax=%d\n", x_min_cal, x_max_cal, y_min_cal, y_max_cal);
+	    fwrite(&x_min_cal, sizeof(unsigned int), 1, fp);
+	    fwrite(&x_max_cal, sizeof(unsigned int), 1, fp);
+	    fwrite(&y_min_cal, sizeof(unsigned int), 1, fp);
+	    fwrite(&y_max_cal, sizeof(unsigned int), 1, fp);
+	    fclose(fp);
+	  }
+	  else {
+	    printf("Cannot open calibration file.\n");
+	  }
+	  calib_mode = 0;
+	}
+	return size;
+}
+
 module_exit(ts_exit);
 
 MODULE_DESCRIPTION("MSM Touch Screen driver");
