@@ -375,7 +375,13 @@ static ssize_t calib_store(
 	char *after;
 	unsigned long value = simple_strtoul(buf, &after, 10);
 	FILE *fp;
-	if (value) calib_mode = 1;
+	if (value) {
+	  calib_mode = 1;
+	  x_min_cal= 512;
+	  y_min_cal= 512;
+	  x_max_cal= 512;
+	  y_max_cal= 512;
+	}
 	else {
 	  if(( fp = fopen("/data/misc/touchscreen/touch_calib", "wb")) != NULL) {
 	    printk("Saving calibration data on /data/misc/touchscreen/touch_calib; xmin=%d, xmax=%d, ymin=%d, ymax=%d\n", x_min_cal, x_max_cal, y_min_cal, y_max_cal);
