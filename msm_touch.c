@@ -84,7 +84,7 @@ MODULE_PARM_DESC(x_min, "Maximum touchable X value");
 module_param_named(y_min, y_min_cal, unsigned int, 0644);
 MODULE_PARM_DESC(x_min, "Minimum touchable Y value");
 module_param_named(y_min, y_max_cal, unsigned int, 0644);
-MODULE_PARM_DESC(y_max, "Minimum touchable Y value");
+MODULE_PARM_DESC(y_max, "Maximum touchable Y value");
 
 static unsigned int x_max_def= 1024;
 static unsigned int y_max_def= 1024;
