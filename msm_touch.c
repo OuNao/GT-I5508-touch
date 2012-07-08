@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/jiffies.h>
 #include <linux/io.h>
+#include <linux/slab.h>
 
 #include <mach/msm_touch.h>
 
@@ -77,13 +78,13 @@ static unsigned int y_min_cal= 0;
 static unsigned int x_max_cal= 1024;
 static unsigned int y_max_cal= 1024;
 
-module_param_named(x_min, x_min_cal, unsigned int, 0644);
+module_param_named(x_min, x_min_cal, int, 0644);
 MODULE_PARM_DESC(x_min, "Minimum touchable X value");
-module_param_named(x_max, x_max_cal, unsigned int, 0644);
+module_param_named(x_max, x_max_cal, int, 0644);
 MODULE_PARM_DESC(x_min, "Maximum touchable X value");
-module_param_named(y_min, y_min_cal, unsigned int, 0644);
+module_param_named(y_min, y_min_cal, int, 0644);
 MODULE_PARM_DESC(x_min, "Minimum touchable Y value");
-module_param_named(y_min, y_max_cal, unsigned int, 0644);
+module_param_named(y_max, y_max_cal, int, 0644);
 MODULE_PARM_DESC(y_max, "Maximum touchable Y value");
 
 static unsigned int x_max_def= 1024;
@@ -96,8 +97,8 @@ static ssize_t calib_show(struct device *dev, struct device_attribute *attr, cha
 static ssize_t calib_store( struct device *dev, struct device_attribute *attr, const char *buf, size_t size);
 static DEVICE_ATTR(calib, 0644, calib_show, calib_store);
 
-struct class *touch_class;
-EXPORT_SYMBOL(touch_class);
+struct class *msm_touch_class;
+EXPORT_SYMBOL(msm_touch_class);
 struct device *msm_touch_dev;
 EXPORT_SYMBOL(msm_touch_dev);
 
@@ -300,9 +301,9 @@ static int __devinit ts_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, ts);
 	
-	touch_class = class_create(THIS_MODULE, "touch");
-	if (IS_ERR(touch_class)) pr_err("Failed to create class(touch)!\n");
-	msm_touch_dev = device_create(touch_class, NULL, 0, NULL, "msm_touch");
+	msm_touch_class = class_create(THIS_MODULE, "touch");
+	if (IS_ERR(msm_touch_class)) pr_err("Failed to create class(touch)!\n");
+	msm_touch_dev = device_create(msm_touch_class, NULL, 0, NULL, "msm_touch");
 	if (device_create_file(msm_touch_dev, &dev_attr_calib) < 0) pr_err("Failed to create device file(%s)!\n", dev_attr_calib.attr.name);
 
 	return 0;
