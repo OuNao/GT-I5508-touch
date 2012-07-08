@@ -76,8 +76,18 @@ static unsigned int x_min_cal= 0;
 static unsigned int y_min_cal= 0;
 static unsigned int x_max_cal= 1024;
 static unsigned int y_max_cal= 1024;
-static unsigned int x_max_def= 1024-0;
-static unsigned int y_max_def= 1024-0;
+
+module_param_named(x_min, x_min_cal, unsigned int, 0644);
+MODULE_PARM_DESC(x_min, "Minimum touchable X value");
+module_param_named(x_max, x_max_cal, unsigned int, 0644);
+MODULE_PARM_DESC(x_min, "Maximum touchable X value");
+module_param_named(y_min, y_min_cal, unsigned int, 0644);
+MODULE_PARM_DESC(x_min, "Minimum touchable Y value");
+module_param_named(y_min, y_max_cal, unsigned int, 0644);
+MODULE_PARM_DESC(y_max, "Minimum touchable Y value");
+
+static unsigned int x_max_def= 1024;
+static unsigned int y_max_def= 1024;
 
 static int calib_mode= 0;
 #define P_MAX	256
@@ -181,6 +191,8 @@ static irqreturn_t ts_interrupt(int irq, void *dev_id)
 		y = y - y_min_cal;
 		lx = x;
 		ly = ts->y_max - y;
+		lx = (lx * x_max_def) / (x_max_cal - x_min_cal);
+		ly = (ly * y_max_def) / (y_max_cal - y_min_cal);
 		printk("touchscreen debug values: x=%d, lx=%d, y=%d, ly=%d\n", x, lx, y, ly);
 		ts_update_pen_state(ts, lx, ly, 255);
 		/* kick pen up timer - to make sure it expires again(!) */
@@ -205,21 +217,6 @@ static int __devinit ts_probe(struct platform_device *pdev)
 	unsigned int x_max, y_max, pressure_max;
 	struct msm_ts_platform_data *pdata = pdev->dev.platform_data;
 
-	FILE *fp;
-	
-	if(( fp = fopen("/data/misc/touchscreen/touch_calib", "rb")) != NULL) {   // try to open calibration file
-	  fread(&x_min_cal, sizeof(unsigned int), 1, fp);
-	  fread(&x_max_cal, sizeof(unsigned int), 1, fp);
-	  fread(&y_min_cal, sizeof(unsigned int), 1, fp);
-	  fread(&y_max_cal, sizeof(unsigned int), 1, fp);
-	  x_max_def= x_max_cal-x_min_cal;
-	  y_max_def= y_max_cal-y_min_cal;
-	  fclose(fp);
-	}
-	else {
-	  printf("Cannot open calibration file.\n");
-	}
-	
 	/* The primary initialization of the TS Hardware
 	 * is taken care of by the ADC code on the modem side
 	 */
@@ -374,7 +371,6 @@ static ssize_t calib_store(
 {
 	char *after;
 	unsigned long value = simple_strtoul(buf, &after, 10);
-	FILE *fp;
 	if (value) {
 	  calib_mode = 1;
 	  x_min_cal= 512;
@@ -382,20 +378,7 @@ static ssize_t calib_store(
 	  x_max_cal= 512;
 	  y_max_cal= 512;
 	}
-	else {
-	  if(( fp = fopen("/data/misc/touchscreen/touch_calib", "wb")) != NULL) {
-	    printk("Saving calibration data on /data/misc/touchscreen/touch_calib; xmin=%d, xmax=%d, ymin=%d, ymax=%d\n", x_min_cal, x_max_cal, y_min_cal, y_max_cal);
-	    fwrite(&x_min_cal, sizeof(unsigned int), 1, fp);
-	    fwrite(&x_max_cal, sizeof(unsigned int), 1, fp);
-	    fwrite(&y_min_cal, sizeof(unsigned int), 1, fp);
-	    fwrite(&y_max_cal, sizeof(unsigned int), 1, fp);
-	    fclose(fp);
-	  }
-	  else {
-	    printf("Cannot open calibration file.\n");
-	  }
-	  calib_mode = 0;
-	}
+	else calib_mode = 0;
 	return size;
 }
 
