@@ -301,7 +301,7 @@ static int __devinit ts_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, ts);
 	
-	msm_touch_class = class_create(THIS_MODULE, "touch");
+	msm_touch_class = class_create(THIS_MODULE, "msm_touch");
 	if (IS_ERR(msm_touch_class)) pr_err("Failed to create class(touch)!\n");
 	msm_touch_dev = device_create(msm_touch_class, NULL, 0, NULL, "msm_touch");
 	if (device_create_file(msm_touch_dev, &dev_attr_calib) < 0) pr_err("Failed to create device file(%s)!\n", dev_attr_calib.attr.name);
